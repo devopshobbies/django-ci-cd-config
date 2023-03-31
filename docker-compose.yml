@@ -1,0 +1,88 @@
+version: "3.9"
+
+networks:
+  default:
+    name: web_net
+
+
+services:
+  db:
+    image: docker.devopshobbieslearning.com/databases/postgres:14.1
+    environment:
+      - POSTGRES_DB=devopshobbies
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+
+  rabbitmq:
+    image: docker.devopshobbieslearning.com/databases/rabbitmq:alpine
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+
+  redis:
+    image: docker.devopshobbieslearning.com/databases/redis:7
+    volumes:
+      - redis-data:/data
+
+  django:
+    image: docker.devopshobbioeslerning.com/backend/backend:latest
+    command: python manage.py runserver 0.0.0.0:8000
+    environment:
+      - DATABASE_URL=psql://postgres:postgres@db:5432/devopshobbies
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+      - SECRET_KEY=i5j5(f87^%ux__9f*&w$m@&u=sp^bhxj+26u-7na06z6egieuj
+      - ALLOWED_HOSTS=["api.devopshobbieslearning.com"]
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+      - rabbitmq
+    restart: on-failure
+    labels:
+     - "traefik.enable=true"
+     - "traefik.docker.network=web_net"
+     - "traefik.http.routers.backend.entrypoints=http"
+     - "traefik.http.routers.backend.rule=Host(`api.devopshobbieslearning.com`)"
+     - "traefik.http.routers.backend.service=backend-secure"
+     - "traefik.http.routers.backend.middlewares=https-redirect"
+     - "traefik.http.routers.backend-secure.entrypoints=https"
+     - "traefik.http.routers.backend-secure.rule=Host(`api.devopshobbieslearning.com`)"
+     - "traefik.http.routers.backend-secure.tls=true"
+     - "traefik.http.routers.backend-secure.tls.options=default"
+     - "traefik.http.routers.backend-secure.tls.certresolver=mycert"
+     - "traefik.http.routers.backend-secure.service=backend-secure"
+     - "traefik.http.services.backend-secure.loadbalancer.server.port=8000"
+
+  celery:
+    build:
+      context: .
+      dockerfile: docker/local.Dockerfile
+    command: celery -A devopshobbies.tasks worker -l info --without-gossip --without-mingle --without-heartbeat
+    environment:
+      - DATABASE_URL=psql://postgres:postgres@db:5432/devopshobbies
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - rabbitmq
+    restart: on-failure
+
+  beats:
+    build:
+      context: .
+      dockerfile: docker/local.Dockerfile
+    command: celery -A devopshobbies.tasks beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    environment:
+      - DATABASE_URL=psql://postgres:postgres@db:5432/devopshobbies
+      - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+      - rabbitmq
+    restart: on-failure
