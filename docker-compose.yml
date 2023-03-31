@@ -86,3 +86,7 @@ services:
       - db
       - rabbitmq
     restart: on-failure
+
+volumes:
+    redis-data:
+
