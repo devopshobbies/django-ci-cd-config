@@ -28,17 +28,20 @@ services:
 
   django:
     image: docker.devopshobbieslearning.com/backend/backend:latest
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --no-input --clear &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000"
       #command: python manage.py runserver 0.0.0.0:8000
     environment:
-      - DATABASE_URL=psql://postgres:postgres@db:5432/devopshobbies
+      - DATABASE_URL=psql://user:password@db:5432/devopshobbies
       - CELERY_BROKER_URL=amqp://guest:guest@rabbitmq:5672//
       - SECRET_KEY=i5j5(f87^%ux__9f*&w$m@&u=sp^bhxj+26u-7na06z6egieuj
       - ALLOWED_HOSTS=["api.devopshobbieslearning.com"]
     volumes:
-      - .:/app
-    ports:
-      - "8000:8000"
+      - static_volume:/app/backend/staticfiles
+      - media_volume:/app/backend/media
+      - ".:/app/backend/backend_api"
     depends_on:
       - db
       - rabbitmq
@@ -85,4 +88,5 @@ services:
 
 volumes:
     redis-data:
-
+    static_volume:
+    media_volume:
