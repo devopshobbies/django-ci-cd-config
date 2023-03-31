@@ -27,7 +27,7 @@ services:
       - redis-data:/data
 
   django:
-    image: docker.devopshobbioeslerning.com/backend/backend:latest
+    image: docker.devopshobbieslearning.com/backend/backend:latest
     command: python manage.py runserver 0.0.0.0:8000
     environment:
       - DATABASE_URL=psql://postgres:postgres@db:5432/devopshobbies
