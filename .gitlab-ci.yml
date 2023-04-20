@@ -1,0 +1,32 @@
+stages:
+  - test
+  - build
+  - deploy
+
+run-test:
+  stage: test
+  before_script:
+    - "echo Prepare run-test.sh"
+    # - "chmod +x run-test.sh"
+  script:
+    # - "./run-test.sh"
+    - "echo script"
+  after_script:
+    - "echo clean the env"
+
+build-docker-image:
+  stage: build
+  script:
+    - "echo build docker image"
+
+build-output:
+  stage: build
+  needs:
+    - build-docker-image
+  script:
+    - "echo build output"
+
+deploy:
+  stage: deploy
+  script:
+    - "echo deploy to production"
