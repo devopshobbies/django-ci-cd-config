@@ -1,0 +1,43 @@
+stages:
+  - test
+  - build
+  - deploy
+
+run-test:
+  stage: test
+  image: docker.devopshobbieslearning.com/utils/python:3.10.7-slim-buster
+  artifacts:
+      when: always
+      paths:
+          - allure_results
+      expire_in: 1 day
+  before_script:
+    - pip install -r requirements.txt
+  script:
+    - "echo Runnning the Tests"
+    - "pytest -v"
+  allow_failure: true
+
+
+build-docker-image:
+  stage: build
+  before_script:
+    - "echo login to $HUB_URL"
+    - "docker login --username $HUB_USER --password $HUB_PASSWORD https://$HUB_URL"
+  script:
+    - "echo docker build backend image"
+    - "docker build -t $HUB_URL/backend/backend:latest ."
+
+    - "echo docker push backend image"
+    - "docker push $HUB_URL/backend/backend:latest"
+
+deploy:
+  stage: deploy
+  before_script:
+    - chmod 400 $SSH_PRIVATE_KEY
+  script:
+    - "echo deploy to production"
+    - ssh -o StrictHostKeyChecking=no -i $SSH_PRIVATE_KEY root@37.32.15.138 "
+      cd /var/django-ci-cd-config/ &&
+      docker-compose pull &&
+      docker-compose up -d"
